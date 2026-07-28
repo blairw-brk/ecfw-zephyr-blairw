@@ -90,7 +90,7 @@ config LOM_MGMT_FUNC_GET_SYS_IDS
 config LOM_MGMT_PROC_LOG_LEVEL
 	int "LOM management handler log level"
 	depends on LOG
-	default 2
+	default 3
 	help
 	  Set log level for LOM management handler module.
 
