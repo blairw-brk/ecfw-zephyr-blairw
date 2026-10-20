@@ -15,7 +15,6 @@ enum host_event_type {
 	HOST_EVENT_SOFT_DN,
 	HOST_EVENT_REBOOT,
 	HOST_EVENT_HOST_RESET,
-	HOST_EVENT_BUS_RESET,
 	HOST_EVENT_PWRBTN_UP,
 	HOST_EVENT_PWRBTN_DN,
 	HOST_EVENT_RSTBTN_PRESSED,
@@ -24,7 +23,7 @@ enum host_event_type {
 	HOST_EVENT_MAX = HOST_EVENT_DNX_WARN,
 };
 
-int host_event_put(uint8_t event);
+int host_event_submit(uint8_t event);
 int host_event_get(uint8_t *buf, uint16_t buf_size, uint16_t * ret_size);
 int host_event_count(void);
 
