@@ -202,6 +202,7 @@ target_sources_ifdef(CONFIG_LOM_MGMT_PROC app
     ${CMAKE_CURRENT_LIST_DIR}/lom_mgmt/host_event_logger.c
     ${CMAKE_CURRENT_LIST_DIR}/lom_mgmt/postcode.c
     ${CMAKE_CURRENT_LIST_DIR}/lom_mgmt/pwrctrl.c
+    ${CMAKE_CURRENT_LIST_DIR}/lom_mgmt/fault_gpio_mon.c
     ${CMAKE_CURRENT_LIST_DIR}/lom_mgmt/hwmon_sens_${CONFIG_LOM_MGMT_SENS_TABLE}.c
     )
 

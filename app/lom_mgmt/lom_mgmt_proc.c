@@ -26,6 +26,7 @@
 #include "host_event.h"
 #include "postcode.h"
 #include "pwrctrl.h"
+#include "fault_gpio_mon.h"
 
 LOG_MODULE_REGISTER(lom_mgmt, CONFIG_LOM_MGMT_PROC_LOG_LEVEL);
 
@@ -693,6 +694,9 @@ void lom_mgmt_thread(void *p1, void *p2, void *p3)
 
 #ifdef CONFIG_LOM_MGMT_FUNC_POWER_CTRL
 	lom_pwrctrl_thread_start();
+#endif
+#ifdef CONFIG_LOM_MGMT_FAULT_GPIO_MON
+	fault_gpio_mon_thread_start();
 #endif
 
 #ifdef CONFIG_LOM_MGMT_LARGE_SENSOR_VALUE
