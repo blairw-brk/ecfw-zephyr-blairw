@@ -23,8 +23,6 @@ include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/app/thermal_manageme
 include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/app/voltage_monitor)
 include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/app/current_monitor)
 
-include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/app/lom_mgmt)
-
 target_sources_ifdef(CONFIG_PERIPHERAL_MANAGEMENT app
     PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/peripheral_management/periphmgmt.c
@@ -195,16 +193,8 @@ target_sources_ifdef(CONFIG_CURRENT_MONITOR app
     ${CMAKE_CURRENT_LIST_DIR}/current_monitor/currmon.h
     )
 
-target_sources_ifdef(CONFIG_LOM_MGMT_PROC app
-    PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR}/lom_mgmt/lom_mgmt_proc.c
-    ${CMAKE_CURRENT_LIST_DIR}/lom_mgmt/host_event.c
-    ${CMAKE_CURRENT_LIST_DIR}/lom_mgmt/host_event_logger.c
-    ${CMAKE_CURRENT_LIST_DIR}/lom_mgmt/postcode.c
-    ${CMAKE_CURRENT_LIST_DIR}/lom_mgmt/pwrctrl.c
-    ${CMAKE_CURRENT_LIST_DIR}/lom_mgmt/fault_gpio_mon.c
-    ${CMAKE_CURRENT_LIST_DIR}/lom_mgmt/mgmt_led_ctrl.c
-    ${CMAKE_CURRENT_LIST_DIR}/lom_mgmt/hwmon_sens_${CONFIG_LOM_MGMT_SENS_TABLE}.c
+add_subdirectory_ifdef(CONFIG_LOM_MGMT_PROC
+    ${CMAKE_CURRENT_LIST_DIR}/lom_mgmt
     )
 
 target_include_directories(app
