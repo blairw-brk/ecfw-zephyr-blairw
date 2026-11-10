@@ -672,18 +672,6 @@ static void espi_vwire_monitor(const struct device *dev, struct espi_callback *c
 		lom_pwrctrl_on_signal(event.evt_details, event.evt_data);
 		break;
 #endif
-	case ESPI_VWIRE_SIGNAL_HOST_RST_WARN:
-		if (event.evt_data == 1) {
-			LOG_DBG_EVENT(">> [HOST RST]");
-			host_event_submit(HOST_EVENT_HOST_RESET);
-		}
-		break;
-	case ESPI_VWIRE_SIGNAL_DNX_WARN:
-		if (event.evt_data == 1) {
-			LOG_DBG_EVENT(">> [DNX WARN]");
-			host_event_submit(HOST_EVENT_DNX_WARN);
-		}
-		break;
 	default:
 		break;
 	}
@@ -707,11 +695,11 @@ static void pwrbtn_event_handler(uint8_t pwrbtn_sts)
 {
 	if (pwrbtn_sts == 0) {
 		LOG_DBG_EVENT("Power Button Pressed");
-		host_event_submit(HOST_EVENT_PWRBTN_DN);
+		host_event_submit(HOST_EVENT_PWRBTN_PRESSED);
 	}
 	else {
 		LOG_DBG_EVENT("Power Button Released");
-		host_event_submit(HOST_EVENT_PWRBTN_UP);
+		host_event_submit(HOST_EVENT_PWRBTN_RELEASED);
 	}
 }
 
