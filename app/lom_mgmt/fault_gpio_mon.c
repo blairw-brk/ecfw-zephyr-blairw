@@ -27,20 +27,56 @@ K_THREAD_DEFINE(fgmon_thread_tid, 1024, fault_gpio_mon_thread,
 
 struct fault_gpio_info {
 	uint32_t pin;
-	int active_level;
-	int record_level;
-	uint8_t event;
-	char * name;
+	int      last_level;
+	uint8_t  event;
+	char *   name;
 };
 
-#define ACTIVE_LOW  0
-#define ACTIVE_HIGH 1
+#define GPIOLVL_NA -1
 
 static struct fault_gpio_info fault_gpios[] =
 {
-	{CATERR_EC_N,    ACTIVE_LOW, ACTIVE_HIGH, HOST_EVENT_CATERR,   "CATERR"  },
-	{THRMTRIP_3P3_N, ACTIVE_LOW, ACTIVE_HIGH, HOST_EVENT_THRMTRIP, "THRMTRIP"},
+	{CATERR_EC_N,    GPIOLVL_NA, HOST_EVENT_CATERR,   "CATERR"  },
+	{THRMTRIP_3P3_N, GPIOLVL_NA, HOST_EVENT_THRMTRIP, "THRMTRIP"},
 };
+
+//#define SIM_GPIOS
+
+#ifdef SIM_GPIOS
+struct sim_gpio_cfg {
+	uint32_t pin;
+	int active;
+	uint32_t ticks;
+	uint32_t ticks_to_change;
+	char * name;
+};
+
+struct sim_gpio_cfg sim_gpios[] = {
+	{CATERR_EC_N,    0, 0, 200, "CATERR"  },
+	{THRMTRIP_3P3_N, 1, 0, 300, "THRMTRIP"},
+};
+
+int simulate_gpio(uint32_t pin, int real_level)
+{
+	for (int i = 0; i < ARRAY_SIZE(sim_gpios); i++) {
+		if (sim_gpios[i].pin == pin) {
+			sim_gpios[i].ticks++;
+
+			if (sim_gpios[i].ticks >= sim_gpios[i].ticks_to_change) {
+				LOG_DBG_EVENT("FAULT GPIO-%s: %d => %d", sim_gpios[i].name,
+					sim_gpios[i].active, !sim_gpios[i].active);
+
+				sim_gpios[i].active = !sim_gpios[i].active;
+				sim_gpios[i].ticks = 0;
+			}
+
+			return sim_gpios[i].active;
+		}
+	}
+
+	return real_level;
+}
+#endif
 
 static void fault_gpio_mon_thread(void *p1, void *p2, void *p3)
 {
@@ -54,20 +90,20 @@ static void fault_gpio_mon_thread(void *p1, void *p2, void *p3)
 		for (unsigned i = 0; i < ARRAY_SIZE(fault_gpios); i++) {
 			struct fault_gpio_info *fgi = &fault_gpios[i];
 
-			int level = gpio_read_pin(fgi->pin);
+			int level = gpio_read_pin(fgi->pin); /* returns logical levels */
 			if (level < 0) {
 				LOG_ERR("read GPIO-%s fail: %d", fgi->name, level);
 				continue;
 			}
-
-			//LOG_DBG_EVENT("GPIO-%s level is %d", fgi->name, level);
-
-			if (level == fgi->active_level && fgi->record_level != level) {
+#ifdef SIM_GPIOS
+			level = simulate_gpio(fgi->pin, level);
+#endif
+			if (level == 1 && fgi->last_level != level) {
 				LOG_WRN("FAULT GPIO-%s ACTIVED!", fgi->name);
 				host_event_submit(fgi->event);
 			}
 
-			fgi->record_level = level;
+			fgi->last_level = level;
 		}
 
 		k_msleep(MON_PERIOD_MS);
@@ -79,14 +115,13 @@ int fault_gpio_mon_thread_start(void)
 	k_thread_name_set(fgmon_thread_tid, "LOM_MGMT_FGMON");
 	k_thread_start(fgmon_thread_tid);
 
-	k_sem_take(&fgmon_thread_started_sem, K_FOREVER);
-
-	LOG_INF("Fault GPIO Monitor thread started. polling interval: %d(ms)", MON_PERIOD_MS);
+	LOG_INF("Fault GPIO Monitor thread started. polling interval: %d(ms), monitoring:", MON_PERIOD_MS);
 
 	for (unsigned i = 0; i < ARRAY_SIZE(fault_gpios); i++) {
-		LOG_INF("  monitoring GPIO-%s(%d), active level %d",
-			fault_gpios[i].name, fault_gpios[i].pin, fault_gpios[i].active_level);
+		LOG_INF("  Fault GPIO-%s(%d)", fault_gpios[i].name, fault_gpios[i].pin);
 	}
+
+	k_sem_take(&fgmon_thread_started_sem, K_FOREVER);
 
 	return 0;
 }
