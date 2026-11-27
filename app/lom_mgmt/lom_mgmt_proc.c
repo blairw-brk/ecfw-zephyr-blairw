@@ -10,6 +10,7 @@
 #include <zephyr/drivers/eeprom.h>
 #include <zephyr/logging/log.h>
 #include <zephyr/sys/ring_buffer.h>
+#include <soc.h>
 
 #include "board_config.h"
 #include "smchost.h"
@@ -596,6 +597,42 @@ static struct vwi_signal_info vwi_managed_sigs[] =
 };
 #endif
 
+#define EC_BOOT_BY_WDT 1
+#define EC_BOOT_BY_PWR 2
+
+static int check_power_loss_on_boot(void)
+{
+	struct pcr_regs *const pcr =
+	(struct pcr_regs *)DT_REG_ADDR(DT_NODELABEL(pcr));
+	struct vbatr_regs *const vbatr =
+	(struct vbatr_regs *)DT_REG_ADDR_BY_NAME(DT_NODELABEL(pcr), vbatr);
+
+	uint32_t pcr_sts  = pcr->PWR_RST_STS;
+	uint32_t vbat_sts = vbatr->PFRS;
+
+	LOG_DBG_EVENT(">> pcr_sts: 0x%x, vbat_sts: 0x%x", pcr_sts, vbat_sts);
+
+	/* VBAT_RST */
+	if (vbat_sts & MCHP_VBATR_PFRS_VBAT_RST) {
+		LOG_DBG_EVENT(">> VBAT LOST");
+		vbatr->PFRS = MCHP_VBATR_PFRS_VBAT_RST; /* clear this bit */
+		return EC_BOOT_BY_PWR;
+	}
+	/* WDT */
+	else if (vbat_sts & MCHP_VBATR_PFRS_WDT) {
+		LOG_DBG_EVENT(">> WDT RST");
+		vbatr->PFRS = MCHP_VBATR_PFRS_WDT; /* clear this bit */
+		return EC_BOOT_BY_WDT;
+	}
+
+	/* RST_SYS, set by watchdog */
+	if (pcr_sts & MCHP_PCR_PRS_RST_SYS_RWC) {
+		pcr->PWR_RST_STS = MCHP_PCR_PRS_RST_SYS_RWC; /* clear this bit */
+	}
+
+	return 0;
+}
+
 /*
  * PLTRST, SLP_A, SLP_S5, SLP_S4, SLP_S3, SLP_WLAN = 1 : System Power UP
  * PLTRST, SLP_A, SLP_S5, SLP_S4, SLP_S3, SLP_WLAN = 0 : System Power Down
@@ -636,16 +673,18 @@ static void espi_vwire_monitor(const struct device *dev, struct espi_callback *c
 		break;
 	case ESPI_VWIRE_SIGNAL_SLP_S3:
 		if (event.evt_data == 1) { /* power on sequence */
-			if (pwr_sta == SYSTEM_G3_STATE) {
-				LOG_DBG_EVENT(">> [HOST Power Up]");
+			int reason = check_power_loss_on_boot();
+
+			if (reason == EC_BOOT_BY_PWR) {
+				LOG_DBG_EVENT(">> [HOST PowerSupply Restored]");
 				host_event_submit(HOST_EVENT_POWER_UP);
-#ifdef CONFIG_LOM_MGMT_FUNC_POSTCODE
-				boot_cycle_count++;
-#endif
 			}
-			else if (pwr_sta == SYSTEM_S4_STATE || pwr_sta == SYSTEM_S5_STATE) {
+
+			if (pwr_sta == SYSTEM_G3_STATE ||
+				pwr_sta == SYSTEM_S4_STATE || pwr_sta == SYSTEM_S5_STATE) {
 				LOG_DBG_EVENT(">> [HOST Soft Up]");
 				host_event_submit(HOST_EVENT_SOFT_UP);
+
 #ifdef CONFIG_LOM_MGMT_FUNC_POSTCODE
 				boot_cycle_count++;
 #endif
